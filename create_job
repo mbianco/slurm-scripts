@@ -1,0 +1,88 @@
+#!/bin/bash
+
+##!  Copyright (c) 2013, MAURO BIANCO, SWISS NATIONAL SUPERCOMPUTING CENTRE (CSCS)
+##!  All rights reserved.
+
+##!  Redistribution and use in source and binary forms, with or without
+##!  modification, are permitted provided that the following conditions are met:
+##!      * Redistributions of source code must retain the above copyright
+##!        notice, this list of conditions and the following disclaimer.
+##!      * Redistributions in binary form must reproduce the above copyright
+##!        notice, this list of conditions and the following disclaimer in the
+##!        documentation and/or other materials provided with the distribution.
+##!      * Neither the name of the Swiss National Supercomputing Centre (CSCS) nor the
+##!        names of its contributors may be used to endorse or promote products
+##!        derived from this software without specific prior written permission.
+
+##!  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
+##!  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
+##!  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+##!  DISCLAIMED. IN NO EVENT SHALL MAURO BIANCO, UGO VARETTO, OR 
+##!  SWISS NATIONAL SUPERCOMPUTING CENTRE (CSCS), BE LIABLE FOR ANY
+##!  DIRECT, INDIRECT, INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES
+##!  (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES;
+##!  LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND
+##!  ON ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+##!  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
+##!  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+
+# $1 Number of nodes
+# $2 Processes per node
+# $3 "depth", number of threads per node
+# $4 application name +path
+# $5..$13 cmd line arguments for appliation
+
+name=job_$1_$2_$3_`basename $4`_$5 
+
+export nodes=$1
+export ppn=$2
+export depth=$3
+echo "echo $LAUNCH_COMMAND" > tmp_file.txt; LAUNCH_COMMAND=`bash tmp_file.txt`; rm tmp_file.txt;
+echo "#!/bin/bash"                                                   >  $name
+echo "#SBATCH --nodes=$1"                                            >> $name
+echo "#SBATCH --exclusive"                                           >> $name
+echo "#SBATCH --ntasks-per-node=$2"                                  >> $name
+#echo "#SBATCH --reservation="                                  >> $name
+
+if [ "$USE_GPU" ] ; then 
+    echo "#SBATCH --gres=gpu:$USE_GPU_NUM"                           >> $name
+fi
+
+if [ "$CONSTRAINT_GPU" ] ; then 
+    echo "#SBATCH --constraint=$CONSTRAINT_GPU"                      >> $name 
+fi
+
+echo "#SBATCH --cpus-per-task=$3"                                    >> $name
+echo "#SBATCH --partition=$DEFAULT_PARTITION"                        >> $name
+echo "#SBATCH --ntasks-per-core=1"                                   >> $name
+echo "#SBATCH --ntasks=$[$nodes*$ppn]"                            >> $name
+#echo "#SBATCH --cpu_bind=cores"                                      >> $name
+#echo "#SBATCH --threads-per-core=1"                                  >> $name
+echo "#SBATCH --mem=24000"                                           >> $name
+echo "#SBATCH --time=01:00:00"                                       >> $name
+echo "#SBATCH --output=slurm_$1_$2_$3_`basename $4`_$5" >> $name
+echo                                                                 >> $name
+echo "export OMP_NUM_THREADS=$3"                                     >> $name
+echo "export KMP_NUM_THREADS=$3"                                     >> $name
+#echo "export MV2_USE_CUDA=1"                                         >> $name
+#echo "export MV2_ENABLE_AFFINITY=0"                                  >> $name
+
+echo "export CSCSPERF_PRINTOPTS=$CSCSPERF_PRINTOPTS"                 >> $name
+echo "export CSCSPERF_EVENTS=$CSCSPERF_EVENTS"                       >> $name
+echo "export CSCSPERF_FILENAME=perf_$name"                           >> $name
+
+for i in ${!MSW_VAR_*} ; do 
+    echo export `eval echo \\$$i`                                    >> $name
+done
+
+echo                                                                 >> $name
+# if `echo ${LAUNCH_COMMAND} | grep aprun 1>/dev/null 2>&1`; then
+# echo "$LAUNCH_COMMAND -n `echo $1\*$2 |bc -l` -N $2 -d $3 $4 $5 $6 $7 $8 $9 ${10} ${11} ${12} ${13} ${14} ${15} ${16} ${17} ${18} ${19} ${20} ${21} ${22} ${23} ${24} ${25} ${26} ${26}"     >> $name
+# else
+echo "$LAUNCH_COMMAND $4 $5 $6 $7 $8 $9 ${10} ${11} ${12} ${13} ${14} ${15} ${16} ${17} ${18} ${19} ${20} ${21} ${22} ${23} ${24} ${25} ${26} ${26}"     >> $name
+#fi
+echo                                                                 >> $name
+
+echo "$EPILOGUE"                                                     >> $name
+
+echo $name

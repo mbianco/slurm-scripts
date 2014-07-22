@@ -1,0 +1,5 @@
+#!/bin/bash
+
+fname=`ls -t |head -n 1`
+
+echo $fname

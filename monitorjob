@@ -1,0 +1,20 @@
+#!/bin/bash
+fatto=true
+DONE="JobState=COMPLETED"
+while $fatto ; do
+    STR1=`scontrol show jobs -o |grep $USER |gawk '{match($0, /JobState[^ ]*/); print RSTART " " RLENGHT " " substr($0, RSTART, RLENGTH);}'`
+    STR=`echo $STR1 | gawk '{print $NF}'`
+    if [ -n "$STR" ]; then
+        printf "%s          \r" $STR ;
+
+        if [ $STR == $DONE ]; then
+            echo
+            fatto=false;
+        else
+            sleep 1
+        fi
+    else
+        echo no job found or job finished
+        exit
+    fi
+done
